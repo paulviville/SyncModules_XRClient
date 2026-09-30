@@ -15,7 +15,8 @@ export default class ClientNetwork {
 	connect ( url = "ws://localhost", port = "3000" ) {
 		console.log( `ClientNetwork - connect ( ${url}:${port} )` );
 
-		this.#socket = new WebSocket( `${ url }:${ port }` );
+		this.#socket = new WebSocket( `${ url }` );
+		// this.#socket = new WebSocket( `${ url }:${ port }` );
 		
 		this.#socket.onopen = ( ) => { this.#handleOnOpen(); };
         this.#socket.onmessage = ( event ) => { this.#handleOnMessage( event.data ); };

@@ -5,6 +5,7 @@ import TransformController from './SyncModulesViews/Controllers/TransformControl
 import { TransformControls } from "controls/TransformControls.js";
 import SceneGraphController from './SyncModulesViews/Controllers/SceneGraphController.js';
 
+import { XRControllerModelFactory } from './three/webxr/XRControllerModelFactory.js';
 
 export default class SceneController {
 	#renderer;
@@ -14,6 +15,18 @@ export default class SceneController {
 	#transformController;
 	#orbitControls;
 	#sceneGraphController;
+	#onRender;
+
+	#controller0;
+	#controller1;
+	#grip0;
+	#grip1;
+
+	#controls;
+
+	#callbacks;
+	#primtives = [ ];
+
 
 	constructor ( ) {
 		console.log( `SceneController - constructor` );
@@ -22,6 +35,7 @@ export default class SceneController {
 		this.#renderer.autoClear = false;
 		this.#renderer.setPixelRatio( window.devicePixelRatio );
 		this.#renderer.setSize( window.innerWidth, window.innerHeight );
+		this.#renderer.xr.enabled = true;
 		document.body.appendChild( this.#renderer.domElement );
 
 		this.#scene = new THREE.Scene( );
@@ -49,11 +63,141 @@ export default class SceneController {
 		this.#addDebug( );
 
 
+		this.#renderer.xr.addEventListener('sessionstart', () => {
+			// const dummy = new THREE.Mesh( 
+			// 	new THREE.SphereGeometry( 0.1, 16, 16 ),
+			// 	new THREE.MeshLambertMaterial( { color: 0xff0000 } )
+			// );
+			// dummy.position.set( 0, 1, -2 );
+			// this.#scene.add( dummy );
+			// this.#controls = new TransformControls( this.#camera,  this.#renderer.domElement );
+
+			// this.#controls.attach( dummy )
+			// this.#scene.add( this.#controls.getHelper( ) );
+
+
+
+			console.log('XR started');
+			this.#controller0 = this.#renderer.xr.getController( 0 );
+			this.#controller1 = this.#renderer.xr.getController( 1 );
+			console.log( this.#controller1, this.#controller0 )
+			this.#scene.add(this.#controller1, this.#controller0)
+
+			const lineGeometry = new THREE.BufferGeometry().setFromPoints( [ new THREE.Vector3( 0, 0, 0 ), new THREE.Vector3( 0, 0, - 1 ) ] );
+			const line0 = new THREE.Line( lineGeometry );
+			const line1 = new THREE.Line( lineGeometry );
+			this.#controller0.add( line0 )
+			this.#controller1.add( line1 )
+
+
+			const raycaster = new THREE.Raycaster();
+			const controllerModelFactory = new XRControllerModelFactory();
+			this.#grip0 = this.#renderer.xr.getControllerGrip( 0 );
+			this.#grip1 = this.#renderer.xr.getControllerGrip( 1 );
+			this.#grip0.add( controllerModelFactory.createControllerModel( this.#grip0 ) );
+			this.#grip1.add( controllerModelFactory.createControllerModel( this.#grip1 ) );
+			this.#scene.add( this.#grip0, this.#grip1 );
+
+			this.#controller1.addEventListener( "move", ( event ) => {
+				this.#transformEvents( this.#controller1, event );
+			} );
+			this.#controller1.addEventListener( "selectstart", ( event ) => {
+				this.#transformEvents( this.#controller1, event );
+			} );
+			this.#controller1.addEventListener( "selectend", ( event ) => {
+				this.#transformEvents( this.#controller1, event );
+			} );
+			this.#controller1.addEventListener( "squeezestart", ( event ) => {
+				// this.#transformEvents( this.#controller1, event );
+				console.log("squeezeStart")
+			} );
+			this.#controller1.addEventListener( "squeezeend", ( event ) => {
+				// this.#transformEvents( this.#controller1, event );
+				let mode = this.#transformController.mode
+				mode = (mode == "translate" ? "rotate" : ( mode == "rotate" ? "scale" : "translate" ))
+				
+				this.#transformController.setMode( mode );
+				this.#transformController.setSpace( mode == "rotate" ? "local" : "world" );
+				console.log("squeezeend")
+			} );
+
+			this.#controller0.addEventListener( "squeezestart", ( event ) => {
+
+				const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule" );
+				primitiveModule.updateTransform( { translation: this.#controller0.position.toArray( ), scale: [ 0.1, 0.1, 0.1 ] }, true );
+				this.#primtives.push( primitiveModule );
+				
+				this.#transformController.setModule( primitiveModule );
+			} );
+			// this.#controller1.addEventListener( "selectend", ( event ) => {
+			// 	this.#transformEvents( this.#controller1, event );
+			// } );
+			this.#controller0.addEventListener( "selectstart", ( event ) => {
+				const primitiveViews = this.#primtives.map( primitiveModule => {
+					return this.#callbacks?.getView( primitiveModule );
+				} );
+				console.log(this.#primtives )
+				console.log(primitiveViews )
+				raycaster.setFromXRController( this.#controller0 );
+				const intersections = raycaster.intersectObjects( primitiveViews );
+				// for ( const view of this.#primtives ) {
+				// 	raycaster.setFromXRController( this.#controller0 );
+
+
+				// }
+				// this.#transformEvents( this.#controller1, event );
+			} );
+			// this.#controller1.addEventListener( "squeezeend", ( event ) => {
+			// 	// this.#transformEvents( this.#controller1, event );
+			// 	let mode = this.#transformController.mode
+			// 	mode = (mode == "translate" ? "rotate" : ( mode == "rotate" ? "scale" : "translate" ))
+				
+			// 	this.#transformController.setMode( mode );
+			// 	this.#transformController.setSpace( mode == "rotate" ? "local" : "world" );
+			// 	console.log("squeezeend")
+			// } );
+
+
+			// this.#controller0.addEventListener( "move", ( event ) => {
+			// 	this.#transformEvents( this.#controller1, event );
+			// } );
+			// this.#controller1.addEventListener( "move", ( event ) => {
+			// 	this.#transformEvents( this.#controller1, event );
+			// } );
+
+
+
+		});
+
+		this.#renderer.xr.addEventListener('sessionend', () => {
+			console.log('XR ended');
+		});
 
 		window.onresize = this.#onWindowResize.bind( this );
 	}
 
+	setCallbacks ( callbacks ) {
+		this.#callbacks = callbacks;
+	}
 
+	#transformEvents ( controller, event ) {
+		this.#transformController.getRaycaster().setFromXRController( controller );
+		switch ( event.type ) {
+			case "selectstart":
+				console.log( controller );
+				console.log( "selectstart")
+				this.#transformController.pointerDown( null );
+				break;
+			case "selectend":
+				console.log( "selectend")
+				this.#transformController.pointerUp( null );
+				break;
+			case "move":
+				this.#transformController.pointerHover( null );
+				this.#transformController.pointerMove( null );
+				break;
+		}
+	}
 
 	#addDebug ( ) {
 		const axesHelper = new THREE.AxesHelper( );
@@ -85,8 +229,9 @@ export default class SceneController {
 		this.#renderer.setSize(window.innerWidth, window.innerHeight);
 	}
 
-	#animate ( ) {
+	#animate ( time, frame ) {
 		this.#renderer.render(this.#scene, this.#camera);
+		this.#onRender?.( time, frame );
 	}
 
 	startRender ( ) {
@@ -115,5 +260,13 @@ export default class SceneController {
 
 	get scene ( ) {
 		return this.#scene;
+	}
+
+	get renderer ( ) {
+		return this.#renderer;
+	}
+
+	set onRender ( callback ) {
+		this.#onRender = callback;
 	}
 }

@@ -36,7 +36,7 @@ export default class ClientManager {
 	#viewsRegistry;
 	#sceneController = new SceneController( );
 	#modulesOwned = new Set( ); /// UUIDs
-
+	#cameraModule;
 	#sendFn;
 
 	constructor ( ) {
@@ -61,6 +61,8 @@ export default class ClientManager {
 
 		const cameraModule = this.addModule("CameraModule", true, true, false);
 		this.#sceneController.controls.setModule( cameraModule );
+		this.#cameraModule = cameraModule;
+		console.log(this.#cameraModule)
 
 		// this.#sceneController.transformController.setModule( primitiveModule );
 
@@ -114,6 +116,18 @@ export default class ClientManager {
 						break;
 				}
 			},
+		} );
+
+		this.#sceneController.setCallbacks( {
+			addModule: ( type, visible = true ) => {
+				return this.addModule( type, true, true, visible);
+			},
+			getView: ( module ) => {
+				console.log( this.#viewsRegistry )
+				console.log( module )
+				console.log( this.#viewsRegistry.getView( module.UUID ) )
+				return this.#viewsRegistry.getView( module.UUID );
+			}
 		} );
 	}
 
@@ -194,6 +208,10 @@ export default class ClientManager {
 		return this.#sceneController;
 	}
 
+	get cameraModule ( ) {
+		console.log("client manager camera module", this.#cameraModule)
+		return this.#cameraModule;
+	}
 
 	/// debug
 	clearInstance ( ) {
