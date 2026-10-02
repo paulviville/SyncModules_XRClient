@@ -25,8 +25,8 @@ export default class SceneController {
 	#controls;
 
 	#callbacks;
-	#primtives = [ ];
-
+	#primtives = new Set( );
+	#selectedPrimitive;
 
 	constructor ( ) {
 		console.log( `SceneController - constructor` );
@@ -63,18 +63,59 @@ export default class SceneController {
 		this.#addDebug( );
 
 
-		this.#renderer.xr.addEventListener('sessionstart', () => {
-			// const dummy = new THREE.Mesh( 
-			// 	new THREE.SphereGeometry( 0.1, 16, 16 ),
-			// 	new THREE.MeshLambertMaterial( { color: 0xff0000 } )
-			// );
-			// dummy.position.set( 0, 1, -2 );
-			// this.#scene.add( dummy );
-			// this.#controls = new TransformControls( this.#camera,  this.#renderer.domElement );
+		this.#renderer.xr.addEventListener('sessionstart', ( ) => {
+			const cameraModule = this.#callbacks.getCameraModule( );
+			const session = this.#renderer.xr.getSession();
+			const inputSources = session.inputSources;
+			
+			console.log( inputSources )
+			const xr = this.#renderer.xr;
+			let aDown = false;
+			let xDown = false;
+			this.onRender = ( time, frame ) => {
+				if( xr.isPresenting ) {
+					const ref = xr.getReferenceSpace( );
+					const pose = frame.getViewerPose( ref );
+					if ( pose ) {
+						const position = pose.transform.position;
+						const orientation = pose.transform.orientation;
+						const transform = {
+							translation: [ position.x, position.y, position.z ],
+							rotation: [ orientation.x, orientation.y, orientation.z, orientation.w ],
+						}
+						cameraModule.updateTransform( transform, true );
+					}
 
-			// this.#controls.attach( dummy )
-			// this.#scene.add( this.#controls.getHelper( ) );
+					for ( const inputSource of inputSources ) {
+						const handedness = inputSource.handedness;
+						const gamepad = inputSource.gamepad;
 
+						if( gamepad === undefined )
+							continue;
+
+						/// FIX button.pressed = hold, not event pressing
+						if ( handedness == "left" && gamepad.buttons[ 4 ].pressed ) {
+
+							console.log( this.#transformController )
+							console.log ( this )
+							console.log( this.#selectedPrimitive );
+							this.#primtives.delete( this.#selectedPrimitive );
+							this.#callbacks?.removeModule( this.#selectedPrimitive.UUID );
+							// this.#selectedPrimitive = undefined;
+							this.#transformController.setModule( undefined );
+						}
+						if ( handedness == "right" && gamepad.buttons[ 4 ].pressed ) {
+							console.log( this.#selectedPrimitive?.primitiveTypes )
+							console.log( gamepad.buttons[4].value )
+						}
+						// gamepad.buttons.forEach( (button, index) => {
+						// 	console.log( index, button.pressed, button.touched, button.value)
+						// });
+						// console.log(gamepad.axes);
+					}
+					
+				}
+			}
 
 
 			console.log('XR started');
@@ -125,21 +166,39 @@ export default class SceneController {
 
 				const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule" );
 				primitiveModule.updateTransform( { translation: this.#controller0.position.toArray( ), scale: [ 0.1, 0.1, 0.1 ] }, true );
-				this.#primtives.push( primitiveModule );
+				this.#primtives.add( primitiveModule );
 				
+				this.#selectedPrimitive = primitiveModule;
+				console.log( " selected ", primitiveModule )
+				console.log( this.#selectedPrimitive )
+				console.log( this )
 				this.#transformController.setModule( primitiveModule );
 			} );
 			// this.#controller1.addEventListener( "selectend", ( event ) => {
 			// 	this.#transformEvents( this.#controller1, event );
 			// } );
 			this.#controller0.addEventListener( "selectstart", ( event ) => {
-				const primitiveViews = this.#primtives.map( primitiveModule => {
+				const primitiveViews = [ ...this.#primtives].map( primitiveModule => {
 					return this.#callbacks?.getView( primitiveModule );
 				} );
-				console.log(this.#primtives )
-				console.log(primitiveViews )
+				// console.log(this.#primtives )
+				// console.log(primitiveViews )
 				raycaster.setFromXRController( this.#controller0 );
 				const intersections = raycaster.intersectObjects( primitiveViews );
+				// console.log(intersections)
+				for ( const hit of intersections ) {
+					// console.log( hit.object )
+					const { object } = hit;
+					if ( object.type == "Mesh" ) {
+						const module = object.module ?? object.parent.module;
+						console.log( module )
+						if ( module && module.type == "PrimitiveModule" ) {
+							this.#selectedPrimitive = module;
+							this.#transformController.setModule( module );
+
+						}
+					}
+				}
 				// for ( const view of this.#primtives ) {
 				// 	raycaster.setFromXRController( this.#controller0 );
 
@@ -147,23 +206,6 @@ export default class SceneController {
 				// }
 				// this.#transformEvents( this.#controller1, event );
 			} );
-			// this.#controller1.addEventListener( "squeezeend", ( event ) => {
-			// 	// this.#transformEvents( this.#controller1, event );
-			// 	let mode = this.#transformController.mode
-			// 	mode = (mode == "translate" ? "rotate" : ( mode == "rotate" ? "scale" : "translate" ))
-				
-			// 	this.#transformController.setMode( mode );
-			// 	this.#transformController.setSpace( mode == "rotate" ? "local" : "world" );
-			// 	console.log("squeezeend")
-			// } );
-
-
-			// this.#controller0.addEventListener( "move", ( event ) => {
-			// 	this.#transformEvents( this.#controller1, event );
-			// } );
-			// this.#controller1.addEventListener( "move", ( event ) => {
-			// 	this.#transformEvents( this.#controller1, event );
-			// } );
 
 
 

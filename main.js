@@ -74,5 +74,5 @@ document.body.appendChild( VRButton.createButton( sceneController.renderer ) );
 
 
 
-clientManager.connect(`${location.protocol === "https:" ? "wss://ln6l4p48-3000.euw.devtunnels.ms/" : "ws://130.79.90.188:3000" }`);
+clientManager.connect(`ws://130.79.90.188`, "3000");
 

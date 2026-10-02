@@ -123,10 +123,16 @@ export default class ClientManager {
 				return this.addModule( type, true, true, visible);
 			},
 			getView: ( module ) => {
-				console.log( this.#viewsRegistry )
-				console.log( module )
-				console.log( this.#viewsRegistry.getView( module.UUID ) )
+				// console.log( this.#viewsRegistry )
+				// console.log( module )
+				// console.log( this.#viewsRegistry.getView( module.UUID ) )
 				return this.#viewsRegistry.getView( module.UUID );
+			},
+			removeModule: ( moduleUUID ) => {
+				this.removeModule ( moduleUUID, true );
+			},
+			getCameraModule: ( ) => {
+				return this.#cameraModule;
 			}
 		} );
 	}
