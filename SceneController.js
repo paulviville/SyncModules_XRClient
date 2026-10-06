@@ -6,6 +6,10 @@ import { TransformControls } from "controls/TransformControls.js";
 import SceneGraphController from './SyncModulesViews/Controllers/SceneGraphController.js';
 
 import { XRControllerModelFactory } from './three/webxr/XRControllerModelFactory.js';
+import XRInputListener from './XRInputListener.js';
+import GLTFImportController from './SyncModulesViews/Controllers/GLTFImportController.js';
+
+// import leftModel from './left.glb'
 
 export default class SceneController {
 	#renderer;
@@ -30,7 +34,8 @@ export default class SceneController {
 
 	constructor ( ) {
 		console.log( `SceneController - constructor` );
-		
+		// console.log( leftModel )
+
 		this.#renderer = new THREE.WebGLRenderer({antialias: true});
 		this.#renderer.autoClear = false;
 		this.#renderer.setPixelRatio( window.devicePixelRatio );
@@ -62,63 +67,22 @@ export default class SceneController {
 		this.#scene.add(pointLight);
 		this.#addDebug( );
 
+		const xrInputListener = new XRInputListener( this.#renderer.xr );
 
 		this.#renderer.xr.addEventListener('sessionstart', ( ) => {
-			const cameraModule = this.#callbacks.getCameraModule( );
-			const session = this.#renderer.xr.getSession();
-			const inputSources = session.inputSources;
-			
-			console.log( inputSources )
-			const xr = this.#renderer.xr;
-			let aDown = false;
-			let xDown = false;
-			this.onRender = ( time, frame ) => {
-				if( xr.isPresenting ) {
-					const ref = xr.getReferenceSpace( );
-					const pose = frame.getViewerPose( ref );
-					if ( pose ) {
-						const position = pose.transform.position;
-						const orientation = pose.transform.orientation;
-						const transform = {
-							translation: [ position.x, position.y, position.z ],
-							rotation: [ orientation.x, orientation.y, orientation.z, orientation.w ],
-						}
-						cameraModule.updateTransform( transform, true );
-					}
+			xrInputListener.sessionStart( );
 
-					for ( const inputSource of inputSources ) {
-						const handedness = inputSource.handedness;
-						const gamepad = inputSource.gamepad;
+			const gltfImportController0 = new GLTFImportController( );
+			const gltfImportController1 = new GLTFImportController( );
+			const leftModule = this.#callbacks?.addModule( "GLTFModule", false );
+			const rightModule = this.#callbacks?.addModule( "GLTFModule", false );
+			gltfImportController0.setModule( leftModule );
+			gltfImportController0.loadFile( "./left.glb" );
+			gltfImportController1.setModule( rightModule );
+			gltfImportController1.loadFile( "./right.glb" );
+			// fetch( "./left.glb" ).then( response => response.blob( ) )
+			// .then( blob => console.log(blob ));
 
-						if( gamepad === undefined )
-							continue;
-
-						/// FIX button.pressed = hold, not event pressing
-						if ( handedness == "left" && gamepad.buttons[ 4 ].pressed ) {
-
-							console.log( this.#transformController )
-							console.log ( this )
-							console.log( this.#selectedPrimitive );
-							this.#primtives.delete( this.#selectedPrimitive );
-							this.#callbacks?.removeModule( this.#selectedPrimitive.UUID );
-							// this.#selectedPrimitive = undefined;
-							this.#transformController.setModule( undefined );
-						}
-						if ( handedness == "right" && gamepad.buttons[ 4 ].pressed ) {
-							console.log( this.#selectedPrimitive?.primitiveTypes )
-							console.log( gamepad.buttons[4].value )
-						}
-						// gamepad.buttons.forEach( (button, index) => {
-						// 	console.log( index, button.pressed, button.touched, button.value)
-						// });
-						// console.log(gamepad.axes);
-					}
-					
-				}
-			}
-
-
-			console.log('XR started');
 			this.#controller0 = this.#renderer.xr.getController( 0 );
 			this.#controller1 = this.#renderer.xr.getController( 1 );
 			console.log( this.#controller1, this.#controller0 )
@@ -139,80 +103,172 @@ export default class SceneController {
 			this.#grip1.add( controllerModelFactory.createControllerModel( this.#grip1 ) );
 			this.#scene.add( this.#grip0, this.#grip1 );
 
-			this.#controller1.addEventListener( "move", ( event ) => {
-				this.#transformEvents( this.#controller1, event );
+			// this.#controller1.addEventListener( "move", ( event ) => {
+			// 	this.#transformEvents( this.#controller1, event );
+			// } );
+
+
+			// xrInputListener.addCallback( "left", 0, "buttonDown", ( ) => { console.log( "left 0 down" ) } );
+			// xrInputListener.addCallback( "left", 1, "buttonDown", ( ) => { console.log( "left 1 down" ) } );
+			// xrInputListener.addCallback( "left", 3, "buttonDown", ( ) => { console.log( "left 3 down" ) } );
+			// xrInputListener.addCallback( "left", 4, "buttonDown", ( ) => { console.log( "left 4 down" ) } );
+			// xrInputListener.addCallback( "left", 5, "buttonDown", ( ) => { console.log( "left 5 down" ) } );
+			
+			// xrInputListener.addCallback( "right", 0, "buttonDown", ( ) => { console.log( "right 0 down" ) } );
+			// xrInputListener.addCallback( "right", 1, "buttonDown", ( ) => { console.log( "right 1 down" ) } );
+			// xrInputListener.addCallback( "right", 3, "buttonDown", ( ) => { console.log( "right 3 down" ) } );
+			// xrInputListener.addCallback( "right", 4, "buttonDown", ( ) => { console.log( "right 4 down" ) } );
+			// xrInputListener.addCallback( "right", 5, "buttonDown", ( ) => { console.log( "right 5 down" ) } );
+
+
+
+
+			xrInputListener.addButtonCallback( "right", 0, "buttonDown", ( ) => {
+				this.#transformEvents( this.#controller1, { type: "selectstart"} );
 			} );
-			this.#controller1.addEventListener( "selectstart", ( event ) => {
-				this.#transformEvents( this.#controller1, event );
+			xrInputListener.addButtonCallback( "right", 0, "buttonUp", ( ) => {
+				this.#transformEvents( this.#controller1, { type: "selectend"} );
 			} );
-			this.#controller1.addEventListener( "selectend", ( event ) => {
-				this.#transformEvents( this.#controller1, event );
-			} );
-			this.#controller1.addEventListener( "squeezestart", ( event ) => {
-				// this.#transformEvents( this.#controller1, event );
-				console.log("squeezeStart")
-			} );
-			this.#controller1.addEventListener( "squeezeend", ( event ) => {
-				// this.#transformEvents( this.#controller1, event );
+			xrInputListener.addButtonCallback( "right", 1, "buttonUp", ( ) => {
 				let mode = this.#transformController.mode
 				mode = (mode == "translate" ? "rotate" : ( mode == "rotate" ? "scale" : "translate" ))
 				
 				this.#transformController.setMode( mode );
 				this.#transformController.setSpace( mode == "rotate" ? "local" : "world" );
-				console.log("squeezeend")
+			} );
+			xrInputListener.addButtonCallback( "right", 4, "buttonDown", ( ) => {
+				if ( this.#selectedPrimitive === undefined ) {
+					return;
+				}
+				
+				const primitiveTypes = this.#selectedPrimitive.primitiveTypes;
+				console.log( primitiveTypes)
+				let nextType;
+				switch ( this.#selectedPrimitive.primitive ) {
+					case primitiveTypes.Sphere:
+						nextType = primitiveTypes.Box;
+						break;
+					case primitiveTypes.Box:
+					// 	nextType = primitiveTypes.Cone;
+					// 	break;
+					// case primitiveTypes.Cone:
+					// 	nextType = primitiveTypes.Cylinder;
+					// 	break;
+					// case primitiveTypes.Cylinder:
+					// 	nextType = primitiveTypes.Box;
+					// 	break;
+					default:
+						nextType = primitiveTypes.Sphere;
+				}
+
+				this.#selectedPrimitive.updatePrimitive( nextType, true );
 			} );
 
-			this.#controller0.addEventListener( "squeezestart", ( event ) => {
-
+			xrInputListener.addButtonCallback( "left", 1, "buttonDown", ( ) => {
 				const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule" );
 				primitiveModule.updateTransform( { translation: this.#controller0.position.toArray( ), scale: [ 0.1, 0.1, 0.1 ] }, true );
 				this.#primtives.add( primitiveModule );
 				
 				this.#selectedPrimitive = primitiveModule;
-				console.log( " selected ", primitiveModule )
-				console.log( this.#selectedPrimitive )
-				console.log( this )
 				this.#transformController.setModule( primitiveModule );
 			} );
-			// this.#controller1.addEventListener( "selectend", ( event ) => {
-			// 	this.#transformEvents( this.#controller1, event );
-			// } );
-			this.#controller0.addEventListener( "selectstart", ( event ) => {
+			xrInputListener.addButtonCallback( "left", 0, "buttonUp", ( ) => {
 				const primitiveViews = [ ...this.#primtives].map( primitiveModule => {
 					return this.#callbacks?.getView( primitiveModule );
 				} );
-				// console.log(this.#primtives )
-				// console.log(primitiveViews )
 				raycaster.setFromXRController( this.#controller0 );
 				const intersections = raycaster.intersectObjects( primitiveViews );
-				// console.log(intersections)
 				for ( const hit of intersections ) {
-					// console.log( hit.object )
 					const { object } = hit;
 					if ( object.type == "Mesh" ) {
 						const module = object.module ?? object.parent.module;
-						console.log( module )
 						if ( module && module.type == "PrimitiveModule" ) {
 							this.#selectedPrimitive = module;
 							this.#transformController.setModule( module );
-
 						}
 					}
 				}
-				// for ( const view of this.#primtives ) {
-				// 	raycaster.setFromXRController( this.#controller0 );
-
-
-				// }
-				// this.#transformEvents( this.#controller1, event );
+			} );
+			xrInputListener.addButtonCallback( "left", 4, "buttonDown", ( ) => {
+				if ( this.#selectedPrimitive !== undefined ) {
+					this.#primtives.delete( this.#selectedPrimitive );
+					this.#callbacks?.removeModule( this.#selectedPrimitive.UUID );
+					this.#selectedPrimitive = undefined;
+					this.#transformController.setModule( this.#selectedPrimitive );
+				}
 			} );
 
 
+			xrInputListener.addMoveCallback( "right", ( transform ) => {
+				this.#transformEvents( this.#controller1, { type: "move"} );
+			} );
 
+			xrInputListener.addMoveCallback( "head", ( transform ) => {
+				cameraModule.updateTransform( transform, true );
+			} );
+
+			let initRot;
+			xrInputListener.addMoveCallback( "left", ( transform ) => {
+				const nodes = leftModule.nodes;
+				if ( !nodes.length )
+					return;
+
+				const rootUUID = leftModule.nodes.at( -1 ).UUID;
+
+				if ( initRot === undefined ) {
+					initRot = new THREE.Quaternion( ).fromArray( leftModule.nodeTransform( rootUUID ).rotation );
+				}
+				const rot = new THREE.Quaternion( ).fromArray( transform.rotation );
+				rot.multiply( initRot );
+
+				leftModule.updateNodes( [ {
+					UUID: rootUUID,
+					transform: {
+						translation: transform.translation,
+						rotation: rot.toArray( ),
+					},
+				} ], true );
+			} );
+
+			xrInputListener.addMoveCallback( "right", ( transform ) => {
+				const nodes = rightModule.nodes;
+				if ( !nodes.length )
+					return;
+
+				const rootUUID = rightModule.nodes.at( -1 ).UUID;
+
+				if ( initRot === undefined ) {
+					initRot = new THREE.Quaternion( ).fromArray( rightModule.nodeTransform( rootUUID ).rotation );
+				}
+				const rot = new THREE.Quaternion( ).fromArray( transform.rotation );
+				rot.multiply( initRot );
+
+				rightModule.updateNodes( [ {
+					UUID: rootUUID,
+					transform: {
+						translation: transform.translation,
+						rotation: rot.toArray( ),
+					},
+				} ], true );
+			} );
+
+			// this.#renderer.xr.getSession( ).addEventListener( 'inputsourceschange', ( event ) => { console.log( event ) } );
+
+
+			const cameraModule = this.#callbacks.getCameraModule( );
+			const session = this.#renderer.xr.getSession();
+			const inputSources = session.inputSources;
+			
+			const xr = this.#renderer.xr;
+			this.onRender = ( time, frame ) => {
+				if( xr.isPresenting ) {
+					xrInputListener.process( frame );
+				}
+			}
 		});
 
-		this.#renderer.xr.addEventListener('sessionend', () => {
-			console.log('XR ended');
+		this.#renderer.xr.addEventListener('sessionend', ( ) => {
+			xrInputListener.sessionEnd( );
 		});
 
 		window.onresize = this.#onWindowResize.bind( this );
@@ -312,3 +368,5 @@ export default class SceneController {
 		this.#onRender = callback;
 	}
 }
+
+
