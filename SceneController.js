@@ -153,17 +153,18 @@ export default class SceneController {
 				let nextType;
 				switch ( this.#selectedPrimitive.primitive ) {
 					case primitiveTypes.Sphere:
-						nextType = primitiveTypes.Box;
+						nextType = primitiveTypes.Cube;
 						break;
-					case primitiveTypes.Box:
-					// 	nextType = primitiveTypes.Cone;
-					// 	break;
-					// case primitiveTypes.Cone:
-					// 	nextType = primitiveTypes.Cylinder;
-					// 	break;
-					// case primitiveTypes.Cylinder:
-					// 	nextType = primitiveTypes.Box;
-					// 	break;
+					case primitiveTypes.Cube:
+						nextType = primitiveTypes.Cone;
+						break;
+					case primitiveTypes.Cone:
+						nextType = primitiveTypes.Cylinder;
+						break;
+					case primitiveTypes.Cylinder:
+						nextType = primitiveTypes.Capsule;
+						break;
+					case primitiveTypes.Capsule:
 					default:
 						nextType = primitiveTypes.Sphere;
 				}
@@ -252,8 +253,7 @@ export default class SceneController {
 					const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule" );
 					this.addPrimitive( primitiveModule );
 					primitiveModule.updateTransform( this.#selectedPrimitive.transform, true );
-					primitiveModule.updatePrimitive( this.#selectedPrimitive.type, true );
-					
+					primitiveModule.updatePrimitive( this.#selectedPrimitive.primitive, true );
 					this.#selectedPrimitive = primitiveModule;
 					this.#transformController.setModule( primitiveModule );
 				}
