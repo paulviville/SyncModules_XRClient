@@ -237,6 +237,17 @@ export default class SceneController {
 				}
 			} );
 
+			xrInputListener.addButtonCallback( "left", 5, "buttonDown", ( ) => {
+				if ( this.#selectedPrimitive !== undefined ) {
+					const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule" );
+					this.addPrimitive( primitiveModule );
+					primitiveModule.updateTransform( this.#selectedPrimitive.transform, true );
+					primitiveModule.updatePrimitive( this.#selectedPrimitive.type, true );
+					
+					this.#selectedPrimitive = primitiveModule;
+					this.#transformController.setModule( primitiveModule );
+				}
+			} );
 
 			xrInputListener.addMoveCallback( "right", ( transform ) => {
 				this.#transformEvents( this.#controller1, { type: "move"} );
