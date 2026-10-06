@@ -207,11 +207,23 @@ export default class SceneController {
 				}, true );
 			} );
 			xrInputListener.addButtonCallback( "left", 0, "buttonUp", ( ) => {
+				lineModule.updateLine( {
+					origin: [ 0, 0, 0 ],
+					end: [ 0, 0, 0 ],
+				}, true );
+
 				const primitiveViews = [ ...this.#primtives].map( primitiveModule => {
 					return this.#callbacks?.getView( primitiveModule );
 				} );
+
 				raycaster.setFromXRController( this.#controller0 );
 				const intersections = raycaster.intersectObjects( primitiveViews );
+
+				if ( intersections.length == 0 ) {
+					this.#selectedPrimitive = undefined;
+					this.#transformController.setModule( undefined );
+				}
+
 				for ( const hit of intersections ) {
 					const { object } = hit;
 					if ( object.type == "Mesh" ) {
@@ -222,10 +234,8 @@ export default class SceneController {
 						}
 					}
 				}
-				lineModule.updateLine( {
-					origin: [ 0, 0, 0 ],
-					end: [ 0, 0, 0 ],
-				}, true );
+				
+
 			} );
 			xrInputListener.addButtonCallback( "left", 4, "buttonDown", ( ) => {
 				if ( this.#selectedPrimitive !== undefined ) {
