@@ -31,6 +31,8 @@ export default class SceneController {
 	#callbacks;
 	#primtives = new Set( );
 	#selectedPrimitive;
+	#lineModule;
+
 
 	constructor ( ) {
 		console.log( `SceneController - constructor` );
@@ -72,16 +74,27 @@ export default class SceneController {
 		this.#renderer.xr.addEventListener('sessionstart', ( ) => {
 			xrInputListener.sessionStart( );
 
+
+
 			const gltfImportController0 = new GLTFImportController( );
 			const gltfImportController1 = new GLTFImportController( );
+			const gltfImportController2 = new GLTFImportController( );
+			const gltfImportController3 = new GLTFImportController( );
 			const leftModule = this.#callbacks?.addModule( "GLTFModule", false );
 			const rightModule = this.#callbacks?.addModule( "GLTFModule", false );
+			const headModule = this.#callbacks?.addModule( "GLTFModule", false );
+			const chestModule = this.#callbacks?.addModule( "GLTFModule", true );
+			const lineModule = this.#callbacks?.addModule( "LineModule", true );
+
 			gltfImportController0.setModule( leftModule );
 			gltfImportController0.loadFile( "./left.glb" );
 			gltfImportController1.setModule( rightModule );
 			gltfImportController1.loadFile( "./right.glb" );
-			// fetch( "./left.glb" ).then( response => response.blob( ) )
-			// .then( blob => console.log(blob ));
+			gltfImportController2.setModule( headModule );
+			gltfImportController2.loadFile( "./head.glb" );
+			gltfImportController3.setModule( chestModule );
+			gltfImportController3.loadFile( "./chest.glb" );
+
 
 			this.#controller0 = this.#renderer.xr.getController( 0 );
 			this.#controller1 = this.#renderer.xr.getController( 1 );
@@ -103,10 +116,6 @@ export default class SceneController {
 			this.#grip1.add( controllerModelFactory.createControllerModel( this.#grip1 ) );
 			this.#scene.add( this.#grip0, this.#grip1 );
 
-			// this.#controller1.addEventListener( "move", ( event ) => {
-			// 	this.#transformEvents( this.#controller1, event );
-			// } );
-
 
 			// xrInputListener.addCallback( "left", 0, "buttonDown", ( ) => { console.log( "left 0 down" ) } );
 			// xrInputListener.addCallback( "left", 1, "buttonDown", ( ) => { console.log( "left 1 down" ) } );
@@ -119,8 +128,6 @@ export default class SceneController {
 			// xrInputListener.addCallback( "right", 3, "buttonDown", ( ) => { console.log( "right 3 down" ) } );
 			// xrInputListener.addCallback( "right", 4, "buttonDown", ( ) => { console.log( "right 4 down" ) } );
 			// xrInputListener.addCallback( "right", 5, "buttonDown", ( ) => { console.log( "right 5 down" ) } );
-
-
 
 
 			xrInputListener.addButtonCallback( "right", 0, "buttonDown", ( ) => {
@@ -167,10 +174,37 @@ export default class SceneController {
 			xrInputListener.addButtonCallback( "left", 1, "buttonDown", ( ) => {
 				const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule" );
 				primitiveModule.updateTransform( { translation: this.#controller0.position.toArray( ), scale: [ 0.1, 0.1, 0.1 ] }, true );
-				this.#primtives.add( primitiveModule );
+				// this.#primtives.add( primitiveModule );
+				this.addPrimitive( primitiveModule );
 				
 				this.#selectedPrimitive = primitiveModule;
 				this.#transformController.setModule( primitiveModule );
+			} );
+			xrInputListener.addButtonCallback( "left", 0, "buttonHeld", ( ) => {
+				const primitiveViews = [ ...this.#primtives].map( primitiveModule => {
+					return this.#callbacks?.getView( primitiveModule );
+				} );
+				raycaster.setFromXRController( this.#controller0 );
+				const intersections = raycaster.intersectObjects( primitiveViews );
+
+				const origin = raycaster.ray.origin.clone( );
+				const end = origin.clone( ).add( raycaster.ray.direction );
+				if ( intersections.length ) {
+					for ( const hit of intersections ) {
+						const { object } = hit;
+						if ( object.type == "Mesh" ) {
+							const module = object.module ?? object.parent.module;
+							if ( module && module.type == "PrimitiveModule" ) {
+								const { point } = hit;
+								end.copy( point );
+							}
+						}
+					}
+				}
+				lineModule.updateLine( {
+					origin: origin.toArray( ),
+					end: end.toArray( ),
+				}, true );
 			} );
 			xrInputListener.addButtonCallback( "left", 0, "buttonUp", ( ) => {
 				const primitiveViews = [ ...this.#primtives].map( primitiveModule => {
@@ -188,10 +222,15 @@ export default class SceneController {
 						}
 					}
 				}
+				lineModule.updateLine( {
+					origin: [ 0, 0, 0 ],
+					end: [ 0, 0, 0 ],
+				}, true );
 			} );
 			xrInputListener.addButtonCallback( "left", 4, "buttonDown", ( ) => {
 				if ( this.#selectedPrimitive !== undefined ) {
-					this.#primtives.delete( this.#selectedPrimitive );
+					// this.#primtives.delete( this.#selectedPrimitive );
+					this.removePrimitive( this.#selectedPrimitive );
 					this.#callbacks?.removeModule( this.#selectedPrimitive.UUID );
 					this.#selectedPrimitive = undefined;
 					this.#transformController.setModule( this.#selectedPrimitive );
@@ -201,10 +240,6 @@ export default class SceneController {
 
 			xrInputListener.addMoveCallback( "right", ( transform ) => {
 				this.#transformEvents( this.#controller1, { type: "move"} );
-			} );
-
-			xrInputListener.addMoveCallback( "head", ( transform ) => {
-				cameraModule.updateTransform( transform, true );
 			} );
 
 			let initRot;
@@ -220,7 +255,6 @@ export default class SceneController {
 				}
 				const rot = new THREE.Quaternion( ).fromArray( transform.rotation );
 				rot.multiply( initRot );
-
 				leftModule.updateNodes( [ {
 					UUID: rootUUID,
 					transform: {
@@ -252,10 +286,67 @@ export default class SceneController {
 				} ], true );
 			} );
 
+			let headInitRot;
+			xrInputListener.addMoveCallback( "head", ( transform ) => {
+				const nodes = headModule.nodes;
+				if ( !nodes.length )
+					return;
+
+				const rootUUID = headModule.nodes.at( 0 ).UUID;
+
+				if ( headInitRot === undefined ) 
+					headInitRot = new THREE.Quaternion( ).fromArray( headModule.nodeTransform( rootUUID ).rotation );
+				const rot = new THREE.Quaternion( ).fromArray( transform.rotation );
+				rot.multiply( headInitRot );
+
+				headModule.updateNodes( [ {
+					UUID: rootUUID,
+					transform: {
+						translation: transform.translation,
+						rotation: rot.toArray( ),
+					},
+				} ], true );
+
+				if ( !chestModule.nodes.length )
+					return;
+
+				const chestRootUUID = chestModule.nodes.at( 0 ).UUID;
+
+				// if ( headInitRot === undefined ) 
+					// headInitRot = new THREE.Quaternion( ).fromArray( chestModule.nodeTransform( rootUUID ).rotation );
+				const chestRot = new THREE.Quaternion( ).fromArray( transform.rotation );
+				// rot.multiply( headInitRot );
+
+				const chestTranslation = [ ...transform.translation ];
+				chestTranslation[ 2 ] += 0.1
+				chestTranslation[ 1 ] -= 0.35
+				// chestTranslation[ 2 ] -= 0.35
+
+				const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(chestRot);
+				forward.y = 0;
+				forward.normalize();
+				const yawOnly = new THREE.Quaternion().setFromAxisAngle(
+					new THREE.Vector3(0, 1, 0),
+					Math.atan2(forward.x, forward.z) + Math.PI
+				);
+
+				const euler = new THREE.Euler( ).setFromQuaternion( new THREE.Quaternion( ...transform.rotation ), "XYZ" );
+				const chestRotation = ( new THREE.Quaternion( ).setFromAxisAngle( new THREE.Vector3(0,1, 0), euler.z ) );
+				chestModule.updateNodes( [ {
+					UUID: chestRootUUID,
+					transform: {
+						translation: chestTranslation,
+						rotation: yawOnly.toArray( ),
+					},
+				} ], true );
+
+			} );
+
 			// this.#renderer.xr.getSession( ).addEventListener( 'inputsourceschange', ( event ) => { console.log( event ) } );
 
 
 			const cameraModule = this.#callbacks.getCameraModule( );
+			this.#callbacks.removeModule( cameraModule.UUID );
 			const session = this.#renderer.xr.getSession();
 			const inputSources = session.inputSources;
 			
@@ -366,6 +457,15 @@ export default class SceneController {
 
 	set onRender ( callback ) {
 		this.#onRender = callback;
+	}
+
+
+	addPrimitive ( primitiveModule ) {
+		this.#primtives.add( primitiveModule );
+	}
+
+	removePrimitive ( primitiveModule ) {
+		this.#primtives.delete( primitiveModule );
 	}
 }
 

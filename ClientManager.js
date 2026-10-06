@@ -66,6 +66,23 @@ export default class ClientManager {
 
 		// this.#sceneController.transformController.setModule( primitiveModule );
 
+		this.#modulesRegistry.setOnChange( this.#modulesRegistry.commands.addModule, ( moduleData ) => {
+			const { type, UUID } = moduleData;
+			if ( type != "PrimitiveModule" )
+				return;
+
+			const module = this.#modulesRegistry.getModule( UUID );
+			this.#sceneController.addPrimitive( module );
+		} );
+		this.#modulesRegistry.setOnChange( this.#modulesRegistry.commands.removeModule, ( moduleData ) => {
+			const { type, UUID } = moduleData;
+			if ( type != "PrimitiveModule" )
+				return;
+
+			const module = this.#modulesRegistry.getModule( UUID );
+			this.#sceneController.addPrimitive( module );
+		} );
+
 		this.#clientNetwork.setCallbacks( {
 			onOpen: ( ) => {
 				this.#sendFn( JSON.stringify( { UUID: this.#UUID } ) );
