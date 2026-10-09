@@ -145,6 +145,10 @@ export default class ClientManager {
 				// console.log( this.#viewsRegistry.getView( module.UUID ) )
 				return this.#viewsRegistry.getView( module.UUID );
 			},
+			getModule: ( moduleUUID ) => {
+				console.log( this.#modulesRegistry, moduleUUID )
+				return this.#modulesRegistry.getModule( moduleUUID );
+			},
 			removeModule: ( moduleUUID ) => {
 				this.removeModule ( moduleUUID, true );
 			},

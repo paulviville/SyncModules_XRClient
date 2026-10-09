@@ -74,26 +74,122 @@ export default class SceneController {
 		this.#renderer.xr.addEventListener('sessionstart', ( ) => {
 			xrInputListener.sessionStart( );
 
+			const params = new URLSearchParams(window.location.search);
+			const url = new URL(window.location);
+			console.log(params)
+			const windowId = parseInt( params.get("id") );
+
+			// let windowUUID = params.get("UUID");
+			let headUUID = params.get("headUUID");
+			let leftUUID = params.get("leftUUID");
+			let rightUUID = params.get("rightUUID");
+			let chestUUID = params.get("chestUUID");
+
+			const setGLBModule = ( UUID, filename ) => {
+				let glbModule;
+				if ( UUID ) {
+					console.log( "UUID PROVIDED" );
+					glbModule = this.#callbacks.getModule( UUID );
+					console.log(glbModule)
+				}
+				if ( glbModule === undefined ) {
+					console.log( "MODULE DOESNT EXIST" );
+					const gltfImportController = new GLTFImportController( );
+					glbModule = this.#callbacks?.addModule( "GLTFModule", false );
+					gltfImportController.setModule( glbModule );
+					gltfImportController.loadFile( filename );
+				}
+				return glbModule;
+			}
+
+			const headModule = setGLBModule( headUUID, "./head.glb" );
+			const chestModule = setGLBModule( chestUUID, "./chest.glb" );
+			const rightModule = setGLBModule( rightUUID, "./right.glb" );
+			const leftModule = setGLBModule( leftUUID, "./left.glb" );
+			url.searchParams.set( "headUUID", headModule.UUID );
+			url.searchParams.set( "chestUUID", chestModule.UUID );
+			url.searchParams.set( "rightUUID", rightModule.UUID );
+			url.searchParams.set( "leftUUID", leftModule.UUID );
+			history.replaceState({}, "", url);
+
+			// let headModule;
+			// if ( headUUID ) {
+			// 	console.log( "HEAD UUID PROVIDED" );
+			// 	headModule = this.#callbacks.getModule( headUUID );
+			// }
+			// if ( headModule === undefined ) {
+			// 	console.log( "HEAD MODULE DOESNT EXIST" );
+			// 	const gltfImportController = new GLTFImportController( );
+			// 	headModule = this.#callbacks?.addModule( "GLTFModule", false );
+			// 	gltfImportController.setModule( headModule );
+			// 	gltfImportController.loadFile( "./head.glb" );
+			// }
+
+			// if ( headUUID === null || headUUID === undefined ) {
+			// 	const gltfImportController = new GLTFImportController( );
+			// 	headModule = this.#callbacks?.addModule( "GLTFModule", false );
+			// 	gltfImportController.setModule( headModule );
+			// 	gltfImportController.loadFile( "./head.glb" );
+			// 	url.searchParams.set( "headUUID", headModule.UUID );
+			// } else {
+			// 	headModule = this.#callbacks.getModule( headUUID );
+			// }
+
+			// let chestModule;
+			// if ( chestUUID === null || chestUUID === undefined ) {
+			// 	const gltfImportController = new GLTFImportController( );
+			// 	chestModule = this.#callbacks?.addModule( "GLTFModule", false );
+			// 	gltfImportController.setModule( chestModule );
+			// 	gltfImportController.loadFile( "./chest.glb" );
+			// 	url.searchParams.set( "chestUUID", chestModule.UUID );
+			// } else {
+			// 	chestModule = this.#callbacks.getModule( chestUUID );
+			// }
+
+			// let leftModule;
+			// if ( leftUUID === null || leftUUID === undefined ) {
+			// 	const gltfImportController = new GLTFImportController( );
+			// 	leftModule = this.#callbacks?.addModule( "GLTFModule", false );
+			// 	gltfImportController.setModule( leftModule );
+			// 	gltfImportController.loadFile( "./left.glb" );
+			// 	url.searchParams.set( "leftUUID", leftModule.UUID );
+			// } else {
+			// 	leftModule = this.#callbacks.getModule( leftUUID );
+			// }
+
+			// let rightModule;
+			// if ( rightUUID === null || rightUUID === undefined ) {
+			// 	const gltfImportController = new GLTFImportController( );
+			// 	rightModule = this.#callbacks?.addModule( "GLTFModule", false );
+			// 	gltfImportController.setModule( rightModule );
+			// 	gltfImportController.loadFile( "./right.glb" );
+			// 	url.searchParams.set( "rightUUID", rightModule.UUID );
+			// } else {
+			// 	rightModule = this.#callbacks.getModule( rightUUID );
+			// }
 
 
-			const gltfImportController0 = new GLTFImportController( );
-			const gltfImportController1 = new GLTFImportController( );
-			const gltfImportController2 = new GLTFImportController( );
-			const gltfImportController3 = new GLTFImportController( );
-			const leftModule = this.#callbacks?.addModule( "GLTFModule", false );
-			const rightModule = this.#callbacks?.addModule( "GLTFModule", false );
-			const headModule = this.#callbacks?.addModule( "GLTFModule", false );
-			const chestModule = this.#callbacks?.addModule( "GLTFModule", false );
+			// const gltfImportController0 = new GLTFImportController( );
+			// const gltfImportController1 = new GLTFImportController( );
+			// const gltfImportController3 = new GLTFImportController( );
+			// const leftModule = this.#callbacks?.addModule( "GLTFModule", false );
+			// const rightModule = this.#callbacks?.addModule( "GLTFModule", false );
+			// const headModule = this.#callbacks?.addModule( "GLTFModule", false );
+			// const chestModule = this.#callbacks?.addModule( "GLTFModule", false );
 			const lineModule = this.#callbacks?.addModule( "LineModule", true );
 
-			gltfImportController0.setModule( leftModule );
-			gltfImportController0.loadFile( "./left.glb" );
-			gltfImportController1.setModule( rightModule );
-			gltfImportController1.loadFile( "./right.glb" );
-			gltfImportController2.setModule( headModule );
-			gltfImportController2.loadFile( "./head.glb" );
-			gltfImportController3.setModule( chestModule );
-			gltfImportController3.loadFile( "./chest.glb" );
+			// gltfImportController0.setModule( leftModule );
+			// gltfImportController0.loadFile( "./left.glb" );
+			// gltfImportController1.setModule( rightModule );
+			// gltfImportController1.loadFile( "./right.glb" );
+
+			// gltfImportController3.setModule( chestModule );
+			// gltfImportController3.loadFile( "./chest.glb" );
+
+
+			console.log( url )
+
+			// history.replaceState({}, "", url);
 
 
 			this.#controller0 = this.#renderer.xr.getController( 0 );
