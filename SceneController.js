@@ -83,7 +83,7 @@ export default class SceneController {
 			const leftModule = this.#callbacks?.addModule( "GLTFModule", false );
 			const rightModule = this.#callbacks?.addModule( "GLTFModule", false );
 			const headModule = this.#callbacks?.addModule( "GLTFModule", false );
-			const chestModule = this.#callbacks?.addModule( "GLTFModule", true );
+			const chestModule = this.#callbacks?.addModule( "GLTFModule", false );
 			const lineModule = this.#callbacks?.addModule( "LineModule", true );
 
 			gltfImportController0.setModule( leftModule );
