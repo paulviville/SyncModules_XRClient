@@ -11,6 +11,21 @@ import GLTFImportController from './SyncModulesViews/Controllers/GLTFImportContr
 
 // import leftModel from './left.glb'
 
+
+function colorWheel(x, y) {
+  // Joystick input normalized to -1..1
+  const angle = Math.atan2(-y, x);
+
+  const hue = ((angle / (Math.PI * 2)) + 1) % 1;
+  const saturation = Math.min(1, Math.sqrt(x * x + y * y));
+  const lightness = 0.5;
+
+  const color = new THREE.Color();
+  color.setHSL(hue, saturation, lightness);
+
+  return color.toArray();
+}
+
 export default class SceneController {
 	#renderer;
 	#scene;
@@ -112,84 +127,14 @@ export default class SceneController {
 			url.searchParams.set( "leftUUID", leftModule.UUID );
 			history.replaceState({}, "", url);
 
-			// let headModule;
-			// if ( headUUID ) {
-			// 	console.log( "HEAD UUID PROVIDED" );
-			// 	headModule = this.#callbacks.getModule( headUUID );
-			// }
-			// if ( headModule === undefined ) {
-			// 	console.log( "HEAD MODULE DOESNT EXIST" );
-			// 	const gltfImportController = new GLTFImportController( );
-			// 	headModule = this.#callbacks?.addModule( "GLTFModule", false );
-			// 	gltfImportController.setModule( headModule );
-			// 	gltfImportController.loadFile( "./head.glb" );
-			// }
-
-			// if ( headUUID === null || headUUID === undefined ) {
-			// 	const gltfImportController = new GLTFImportController( );
-			// 	headModule = this.#callbacks?.addModule( "GLTFModule", false );
-			// 	gltfImportController.setModule( headModule );
-			// 	gltfImportController.loadFile( "./head.glb" );
-			// 	url.searchParams.set( "headUUID", headModule.UUID );
-			// } else {
-			// 	headModule = this.#callbacks.getModule( headUUID );
-			// }
-
-			// let chestModule;
-			// if ( chestUUID === null || chestUUID === undefined ) {
-			// 	const gltfImportController = new GLTFImportController( );
-			// 	chestModule = this.#callbacks?.addModule( "GLTFModule", false );
-			// 	gltfImportController.setModule( chestModule );
-			// 	gltfImportController.loadFile( "./chest.glb" );
-			// 	url.searchParams.set( "chestUUID", chestModule.UUID );
-			// } else {
-			// 	chestModule = this.#callbacks.getModule( chestUUID );
-			// }
-
-			// let leftModule;
-			// if ( leftUUID === null || leftUUID === undefined ) {
-			// 	const gltfImportController = new GLTFImportController( );
-			// 	leftModule = this.#callbacks?.addModule( "GLTFModule", false );
-			// 	gltfImportController.setModule( leftModule );
-			// 	gltfImportController.loadFile( "./left.glb" );
-			// 	url.searchParams.set( "leftUUID", leftModule.UUID );
-			// } else {
-			// 	leftModule = this.#callbacks.getModule( leftUUID );
-			// }
-
-			// let rightModule;
-			// if ( rightUUID === null || rightUUID === undefined ) {
-			// 	const gltfImportController = new GLTFImportController( );
-			// 	rightModule = this.#callbacks?.addModule( "GLTFModule", false );
-			// 	gltfImportController.setModule( rightModule );
-			// 	gltfImportController.loadFile( "./right.glb" );
-			// 	url.searchParams.set( "rightUUID", rightModule.UUID );
-			// } else {
-			// 	rightModule = this.#callbacks.getModule( rightUUID );
-			// }
 
 
-			// const gltfImportController0 = new GLTFImportController( );
-			// const gltfImportController1 = new GLTFImportController( );
-			// const gltfImportController3 = new GLTFImportController( );
-			// const leftModule = this.#callbacks?.addModule( "GLTFModule", false );
-			// const rightModule = this.#callbacks?.addModule( "GLTFModule", false );
-			// const headModule = this.#callbacks?.addModule( "GLTFModule", false );
-			// const chestModule = this.#callbacks?.addModule( "GLTFModule", false );
 			const lineModule = this.#callbacks?.addModule( "LineModule", true );
 
-			// gltfImportController0.setModule( leftModule );
-			// gltfImportController0.loadFile( "./left.glb" );
-			// gltfImportController1.setModule( rightModule );
-			// gltfImportController1.loadFile( "./right.glb" );
-
-			// gltfImportController3.setModule( chestModule );
-			// gltfImportController3.loadFile( "./chest.glb" );
 
 
 			console.log( url )
 
-			// history.replaceState({}, "", url);
 
 
 			this.#controller0 = this.#renderer.xr.getController( 0 );
@@ -245,7 +190,6 @@ export default class SceneController {
 				}
 				
 				const primitiveTypes = this.#selectedPrimitive.primitiveTypes;
-				console.log( primitiveTypes)
 				let nextType;
 				switch ( this.#selectedPrimitive.primitive ) {
 					case primitiveTypes.Sphere:
@@ -346,10 +290,11 @@ export default class SceneController {
 
 			xrInputListener.addButtonCallback( "left", 5, "buttonDown", ( ) => {
 				if ( this.#selectedPrimitive !== undefined ) {
-					const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule" );
+					const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule", true, false );
 					this.addPrimitive( primitiveModule );
 					primitiveModule.updateTransform( this.#selectedPrimitive.transform, true );
 					primitiveModule.updatePrimitive( this.#selectedPrimitive.primitive, true );
+					primitiveModule.updateColor( this.#selectedPrimitive.color, true );
 					this.#selectedPrimitive = primitiveModule;
 					this.#transformController.setModule( primitiveModule );
 				}
@@ -457,6 +402,17 @@ export default class SceneController {
 					},
 				} ], true );
 
+			} );
+
+			xrInputListener.addAxesCallback( "left", ( x, y ) => {
+				if ( x == 0 && y == -0 )
+					return 
+				if ( this.#selectedPrimitive !== undefined ) {
+					const color = colorWheel( x, y );
+					console.log( color )
+
+					this.#selectedPrimitive.updateColor( [ ...color, 1 ], true );
+				}
 			} );
 
 			// this.#renderer.xr.getSession( ).addEventListener( 'inputsourceschange', ( event ) => { console.log( event ) } );

@@ -29,6 +29,11 @@ export default class XRInputListener {
 		right: [ ],
 	}
 
+	#axesCallbacks = {
+		left: [ ],
+		right: [ ],
+	}
+
 	// 0: select, 1: grip, 2: ?, 3: js, 4: a/x, 5: b/y
 	#buttons = {
 		left: [ false, false, false, false, false, false ],
@@ -48,6 +53,7 @@ export default class XRInputListener {
 
 	#eventQueue = [ ];
 	#moveQueue = [ ];
+	#axesQueue = [ ];
 
 	constructor ( xr ) {
 		this.#xr = xr;
@@ -83,6 +89,22 @@ export default class XRInputListener {
 
 				this.#buttons[ hand ][ index ] = pressed;
 			} );
+
+			// console.log(gamepad.axes);
+			const axes = [ ...gamepad.axes ];
+			console.log (axes, gamepad.buttons[3] )
+			if ( gamepad.buttons[ 3 ].touched ) {
+				
+				const changed = !( this.#axes[ hand ][ 2 ] == axes[ 2 ]
+					&& this.#axes[ hand ][ 3 ] == axes[ 3 ] )
+				
+				if( changed )
+					this.#axesQueue.push( { hand, x: axes[ 2 ], y: axes[ 3 ] } );
+			}
+			this.#axes[ hand ][ 2 ] = axes[ 2 ]
+			this.#axes[ hand ][ 3 ] = axes[ 3 ]
+
+
 		}
 
 
@@ -93,7 +115,6 @@ export default class XRInputListener {
 					// 	if( gamepad === undefined )
 					// 		continue;
 
-					// 	// console.log(gamepad.axes);
 					// }
 	}
 
@@ -152,6 +173,12 @@ export default class XRInputListener {
 			callbacks.forEach( callback => callback( this.#transforms[ target ] ) );
 		} );
 		this.#moveQueue.length = 0;
+
+		this.#axesQueue.forEach( ( { hand, x, y } ) => {
+			const callbacks = this.#axesCallbacks[ hand ];
+			callbacks.forEach( callback => callback( x, y ) );
+		} );
+		this.#axesQueue.length = 0;
 	}
 
 	addButtonCallback ( hand, index, event, callback ) {
@@ -165,5 +192,9 @@ export default class XRInputListener {
 	/// left, right, head
 	addMoveCallback ( target, callback ) {
 		this.#moveCallbacks[ target ].push( callback );
+	}
+
+	addAxesCallback ( hand, callback ) {
+		this.#axesCallbacks[ hand ].push( callback );
 	}
 }
