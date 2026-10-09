@@ -136,8 +136,8 @@ export default class ClientManager {
 		} );
 
 		this.#sceneController.setCallbacks( {
-			addModule: ( type, visible = true ) => {
-				return this.addModule( type, true, true, visible);
+			addModule: ( type, visible = true, own = true ) => {
+				return this.addModule( type, true, own, visible);
 			},
 			getView: ( module ) => {
 				// console.log( this.#viewsRegistry )

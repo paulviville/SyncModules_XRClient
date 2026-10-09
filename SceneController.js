@@ -269,7 +269,7 @@ export default class SceneController {
 			} );
 
 			xrInputListener.addButtonCallback( "left", 1, "buttonDown", ( ) => {
-				const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule" );
+				const primitiveModule = this.#callbacks?.addModule( "PrimitiveModule", true, false );
 				primitiveModule.updateTransform( { translation: this.#controller0.position.toArray( ), scale: [ 0.1, 0.1, 0.1 ] }, true );
 				// this.#primtives.add( primitiveModule );
 				this.addPrimitive( primitiveModule );
