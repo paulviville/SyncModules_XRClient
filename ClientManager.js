@@ -68,19 +68,31 @@ export default class ClientManager {
 
 		this.#modulesRegistry.setOnChange( this.#modulesRegistry.commands.addModule, ( moduleData ) => {
 			const { type, UUID } = moduleData;
-			if ( type != "PrimitiveModule" )
+			console.log( type, UUID )
+			if ( type != "PrimitiveModule" && type != "GLTFModule" )
 				return;
 
 			const module = this.#modulesRegistry.getModule( UUID );
-			this.#sceneController.addPrimitive( module );
+			if ( type == "PrimitiveModule" ) 
+				this.#sceneController.addPrimitive( module );
+			if ( type == "GLTFModule" ) {
+				this.#sceneController.addObject( module );
+			}
 		} );
 		this.#modulesRegistry.setOnChange( this.#modulesRegistry.commands.removeModule, ( moduleData ) => {
 			const { type, UUID } = moduleData;
-			if ( type != "PrimitiveModule" )
+			if ( type != "PrimitiveModule" && type != "GLTFModule" )
 				return;
 
+
 			const module = this.#modulesRegistry.getModule( UUID );
-			this.#sceneController.addPrimitive( module );
+			
+			if ( type == "PrimitiveModule" ) 
+				this.#sceneController.removePrimitive( module );
+			if ( type == "GLTFModule" ) {
+				this.#sceneController.removeObject( module );
+			}
+
 		} );
 
 		this.#clientNetwork.setCallbacks( {
@@ -192,7 +204,7 @@ export default class ClientManager {
 	#onModuleMessage ( payload ) {
 		const { moduleUUID } = payload;
 		const module = this.#modulesRegistry.getModule( moduleUUID );
-		module.input( payload );
+		module?.input( payload );
 	}
 
 	addModule ( type, sync = false, own = false, view = true ) {

@@ -92,7 +92,7 @@ export default class XRInputListener {
 
 			// console.log(gamepad.axes);
 			const axes = [ ...gamepad.axes ];
-			console.log (axes, gamepad.buttons[3] )
+			// console.log (axes, gamepad.buttons[3] )
 			if ( gamepad.buttons[ 3 ].touched ) {
 				
 				const changed = !( this.#axes[ hand ][ 2 ] == axes[ 2 ]
@@ -160,7 +160,6 @@ export default class XRInputListener {
 		this.track( frame );
 
 		this.#eventQueue.forEach( ( { hand, index, event } ) => {
-			console.log( hand, index, event )
 			if ( this.#callbacks[ hand ][ index ].has( event ) ) {
 				const callbacks = this.#callbacks[ hand ][ index ].get( event );
 				callbacks.forEach( callback => callback( ) );

@@ -9,7 +9,6 @@ import { XRControllerModelFactory } from './three/webxr/XRControllerModelFactory
 import XRInputListener from './XRInputListener.js';
 import GLTFImportController from './SyncModulesViews/Controllers/GLTFImportController.js';
 
-// import leftModel from './left.glb'
 
 
 function colorWheel(x, y) {
@@ -45,9 +44,14 @@ export default class SceneController {
 
 	#callbacks;
 	#primtives = new Set( );
+	#gltfs = new Set( );
+
 	#selectedPrimitive;
+	#selectedGLTF;
+	#activeController;
 	#lineModule;
 
+	#raycaster = new THREE.Raycaster();
 
 	constructor ( ) {
 		console.log( `SceneController - constructor` );
@@ -91,7 +95,6 @@ export default class SceneController {
 
 			const params = new URLSearchParams(window.location.search);
 			const url = new URL(window.location);
-			console.log(params)
 			const windowId = parseInt( params.get("id") );
 
 			// let windowUUID = params.get("UUID");
@@ -105,7 +108,7 @@ export default class SceneController {
 				if ( UUID ) {
 					console.log( "UUID PROVIDED" );
 					glbModule = this.#callbacks.getModule( UUID );
-					console.log(glbModule)
+					// console.log(glbModule)
 				}
 				if ( glbModule === undefined ) {
 					console.log( "MODULE DOESNT EXIST" );
@@ -113,6 +116,9 @@ export default class SceneController {
 					glbModule = this.#callbacks?.addModule( "GLTFModule", false );
 					gltfImportController.setModule( glbModule );
 					gltfImportController.loadFile( filename );
+				} else {
+					const view = this.#callbacks.getView( glbModule );
+					view.visible = false;
 				}
 				return glbModule;
 			}
@@ -121,6 +127,12 @@ export default class SceneController {
 			const chestModule = setGLBModule( chestUUID, "./chest.glb" );
 			const rightModule = setGLBModule( rightUUID, "./right.glb" );
 			const leftModule = setGLBModule( leftUUID, "./left.glb" );
+
+			headModule.setLock( true, true );
+			chestModule.setLock( true, true );
+			rightModule.setLock( true, true );
+			leftModule.setLock( true, true );
+
 			url.searchParams.set( "headUUID", headModule.UUID );
 			url.searchParams.set( "chestUUID", chestModule.UUID );
 			url.searchParams.set( "rightUUID", rightModule.UUID );
@@ -133,13 +145,8 @@ export default class SceneController {
 
 
 
-			console.log( url )
-
-
-
 			this.#controller0 = this.#renderer.xr.getController( 0 );
 			this.#controller1 = this.#renderer.xr.getController( 1 );
-			console.log( this.#controller1, this.#controller0 )
 			this.#scene.add(this.#controller1, this.#controller0)
 
 			const lineGeometry = new THREE.BufferGeometry().setFromPoints( [ new THREE.Vector3( 0, 0, 0 ), new THREE.Vector3( 0, 0, - 1 ) ] );
@@ -178,11 +185,14 @@ export default class SceneController {
 				this.#transformEvents( this.#controller1, { type: "selectend"} );
 			} );
 			xrInputListener.addButtonCallback( "right", 1, "buttonUp", ( ) => {
-				let mode = this.#transformController.mode
+				if ( this.#activeController === undefined )
+					return;
+
+				let mode = this.#activeController.mode
 				mode = (mode == "translate" ? "rotate" : ( mode == "rotate" ? "scale" : "translate" ))
 				
-				this.#transformController.setMode( mode );
-				this.#transformController.setSpace( mode == "rotate" ? "local" : "world" );
+				this.#activeController.setMode( mode );
+				this.#activeController.setSpace( mode == "rotate" ? "local" : "world" );
 			} );
 			xrInputListener.addButtonCallback( "right", 4, "buttonDown", ( ) => {
 				if ( this.#selectedPrimitive === undefined ) {
@@ -220,32 +230,27 @@ export default class SceneController {
 				
 				this.#selectedPrimitive = primitiveModule;
 				this.#transformController.setModule( primitiveModule );
+
+				this.#selectedGLTF = undefined;
+				this.#sceneGraphController.setModule( this.#selectedGLTF );
+				this.#activeController = this.#transformController;
 			} );
 			xrInputListener.addButtonCallback( "left", 0, "buttonHeld", ( ) => {
-				const primitiveViews = [ ...this.#primtives].map( primitiveModule => {
-					return this.#callbacks?.getView( primitiveModule );
-				} );
-				raycaster.setFromXRController( this.#controller0 );
-				const intersections = raycaster.intersectObjects( primitiveViews );
 
-				const origin = raycaster.ray.origin.clone( );
-				const end = origin.clone( ).add( raycaster.ray.direction );
-				if ( intersections.length ) {
-					for ( const hit of intersections ) {
-						const { object } = hit;
-						if ( object.type == "Mesh" ) {
-							const module = object.module ?? object.parent.module;
-							if ( module && module.type == "PrimitiveModule" ) {
-								const { point } = hit;
-								end.copy( point );
-							}
-						}
-					}
-				}
+				const { hitModule, dist } = this.#raycast( this.#controller0 );
+
+				const origin = this.#raycaster.ray.origin.clone( );
+				const end = origin.clone( ).addScaledVector( 
+					this.#raycaster.ray.direction,
+					hitModule !== undefined ? dist : 10.0
+				);
+
 				lineModule.updateLine( {
 					origin: origin.toArray( ),
 					end: end.toArray( ),
 				}, true );
+
+				console.log( lineModule.line )
 			} );
 			xrInputListener.addButtonCallback( "left", 0, "buttonUp", ( ) => {
 				lineModule.updateLine( {
@@ -253,30 +258,35 @@ export default class SceneController {
 					end: [ 0, 0, 0 ],
 				}, true );
 
-				const primitiveViews = [ ...this.#primtives].map( primitiveModule => {
-					return this.#callbacks?.getView( primitiveModule );
-				} );
+				const { hitModule, dist } = this.#raycast( this.#controller0 );
 
-				raycaster.setFromXRController( this.#controller0 );
-				const intersections = raycaster.intersectObjects( primitiveViews );
-
-				if ( intersections.length == 0 ) {
-					this.#selectedPrimitive = undefined;
-					this.#transformController.setModule( undefined );
+				switch ( hitModule?.type ) {
+					case "PrimitiveModule":
+						console.log("primitive hit")
+						this.#selectedPrimitive = hitModule;
+						this.#selectedGLTF = undefined;
+						this.#transformController.setModule( this.#selectedPrimitive );
+						this.#sceneGraphController.setModule( this.#selectedGLTF );
+						this.#activeController = this.#transformController;
+						break;
+					case "GLTFModule":
+						this.#selectedPrimitive = undefined;
+						this.#selectedGLTF = hitModule;
+						this.#transformController.setModule( this.#selectedPrimitive );
+						this.#sceneGraphController.setModule( this.#selectedGLTF );
+						this.#sceneGraphController.setTargetNode( this.#selectedGLTF.nodeUUIDs[ 0 ] );
+						this.#activeController = this.#sceneGraphController;
+						console.log( "gltf hit ")
+						break;
+					default:
+						this.#selectedPrimitive = undefined;
+						this.#selectedGLTF = undefined;
+						this.#transformController.setModule( this.#selectedPrimitive );
+						this.#sceneGraphController.setModule( this.#selectedGLTF );
+						this.#activeController = undefined;
+						console.log( "no hit" );
+						break;
 				}
-
-				for ( const hit of intersections ) {
-					const { object } = hit;
-					if ( object.type == "Mesh" ) {
-						const module = object.module ?? object.parent.module;
-						if ( module && module.type == "PrimitiveModule" ) {
-							this.#selectedPrimitive = module;
-							this.#transformController.setModule( module );
-						}
-					}
-				}
-				
-
 			} );
 			xrInputListener.addButtonCallback( "left", 4, "buttonDown", ( ) => {
 				if ( this.#selectedPrimitive !== undefined ) {
@@ -285,6 +295,7 @@ export default class SceneController {
 					this.#callbacks?.removeModule( this.#selectedPrimitive.UUID );
 					this.#selectedPrimitive = undefined;
 					this.#transformController.setModule( this.#selectedPrimitive );
+					this.#activeController = this.#transformController;
 				}
 			} );
 
@@ -443,45 +454,33 @@ export default class SceneController {
 	}
 
 	#transformEvents ( controller, event ) {
-		this.#transformController.getRaycaster().setFromXRController( controller );
+		if ( ! this.#activeController ) 
+			return 
+		this.#activeController.getRaycaster().setFromXRController( controller );
 		switch ( event.type ) {
 			case "selectstart":
 				console.log( controller );
 				console.log( "selectstart")
-				this.#transformController.pointerDown( null );
+				this.#activeController.pointerDown( null );
 				break;
 			case "selectend":
 				console.log( "selectend")
-				this.#transformController.pointerUp( null );
+				this.#activeController.pointerUp( null );
 				break;
 			case "move":
-				this.#transformController.pointerHover( null );
-				this.#transformController.pointerMove( null );
+				this.#activeController.pointerHover( null );
+				this.#activeController.pointerMove( null );
 				break;
 		}
 	}
 
 	#addDebug ( ) {
-		const axesHelper = new THREE.AxesHelper( );
-		this.#scene.add( axesHelper );
-		const gridHelper = new THREE.GridHelper( );
-		this.#scene.add( gridHelper );
+		// const axesHelper = new THREE.AxesHelper( );
+		// this.#scene.add( axesHelper );
+		// const gridHelper = new THREE.GridHelper( );
+		// this.#scene.add( gridHelper );
 
 
-		const divs = 10;
-		const sphereGroup = new THREE.Group( );
-		const sphereGeometry = new THREE.SphereGeometry( 0.1, 16, 16 );
-		// for ( let i = 0; i < divs; ++i ) {
-		// 	for ( let j = 0; j < divs; ++j ) {
-		// 		for ( let k = 0; k < divs; ++k ) {
-		// 			const material = new THREE.MeshPhongMaterial( { color: new THREE.Color( i / divs, j / divs, k / divs) } );
-		// 			const sphere = new THREE.Mesh( sphereGeometry, material)
-		// 			sphereGroup.add( sphere );
-		// 			sphere.position.set( -5 + ( 10 / divs ) *i, -5 + ( 10 / divs ) *j, -5 + ( 10 / divs ) *k )
-		// 		} 
-		// 	} 
-		// }
-		this.#scene.add( sphereGroup );
 	}
 
 	#onWindowResize ( ) {
@@ -539,6 +538,75 @@ export default class SceneController {
 
 	removePrimitive ( primitiveModule ) {
 		this.#primtives.delete( primitiveModule );
+	}
+
+	addObject ( gltfModule ) {
+		console.log( `adding gltf module ${ gltfModule.UUID }`);
+		this.#gltfs.add( gltfModule );
+	}
+	
+	removeObject ( gltfModule ) {
+		console.log( `removing gltf module ${ gltfModule.UUID }`);
+		this.#gltfs.delete( gltfModule );
+	}
+
+
+	#raycast ( controller ) {
+		const primitiveViews = [ ...this.#primtives].map( primitiveModule => {
+			return this.#callbacks?.getView( primitiveModule );
+		} );
+
+		const gltfViews = [ ...this.#gltfs ].flatMap( gltfModule => {
+			if ( gltfModule.lock ) 
+				return [];
+			return [ this.#callbacks?.getView( gltfModule ) ];
+		} );
+
+		this.#raycaster.setFromXRController( controller );
+		const intersections = this.#raycaster.intersectObjects( primitiveViews );
+		
+		if ( intersections.length == 0 ) {
+			this.#selectedPrimitive = undefined;
+			this.#transformController.setModule( undefined );
+		}
+
+		let hitModule = undefined;
+		let dist = Infinity;
+		for ( const hit of intersections ) {
+			const { object } = hit;
+			if ( object.type == "Mesh" ) {
+				const module = object.module ?? object.parent.module;
+				if ( module && module.type == "PrimitiveModule" ) {
+					hitModule = module;
+					dist = hit.distance;
+
+					break;
+				}
+			}
+		}
+		
+		const intersectionsGLTF = this.#raycaster.intersectObjects( gltfViews );
+
+		for ( const hit of intersectionsGLTF ) {
+			const { object } = hit;
+			let parent = object.parent
+			while ( parent.module?.type != "GLTFModule" && parent.type !== "Scene" ) {
+				parent = parent.parent;
+			}
+			
+			if ( parent.type == "Scene" ) {
+				continue;
+			}
+
+			const module = parent.module;
+			if ( hit.distance < dist ) {
+				dist = hit.distance;
+				hitModule = module;
+			}
+			break;
+		}
+
+		return { hitModule, dist };
 	}
 }
 
