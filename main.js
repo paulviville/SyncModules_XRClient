@@ -74,5 +74,6 @@ document.body.appendChild( VRButton.createButton( sceneController.renderer ) );
 
 
 
-clientManager.connect(`ws://130.79.90.188`, "3000");
+// clientManager.connect(`ws://130.79.90.188`, "3000");
+clientManager.connect("wss://icos.univ-reims.fr", "443");
 
